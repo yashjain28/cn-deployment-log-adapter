@@ -10,6 +10,7 @@ import (
 	"os"
 	"math/rand"
 	"time"
+	"bytes"
 )
 
 
@@ -135,15 +136,17 @@ func main(){
     
     
     t, _ := tail.TailFile(filename, tail.Config{
-		Location: &tail.SeekInfo{
-			Whence:os.SEEK_END,
-		},
+		// Location: &tail.SeekInfo{
+		// 	Whence:os.SEEK_END
+		// },
         Follow: true,
         ReOpen: true})
     
     startFlag := false
     endFlag := false    
-    
+	
+	var buffer bytes.Buffer
+	
     
     for line := range t.Lines {
         if startFlag == false {
@@ -151,12 +154,19 @@ func main(){
         }
         endFlag = findIfMatchesEnd(line.Text)
         if startFlag == true {
-            fmt.Println(line.Text)
-            publishLog(line.Text)
-        }
+			fmt.Println(line.Text)
+			buffer.WriteString(line.Text + "\n")
+            
+		}
+		if buffer.Len() > 1024 {
+			publishLog(buffer.String())
+			buffer.Reset()
+		}
         if endFlag == true {
             startFlag = false
-            endFlag = false
+			endFlag = false
+			publishLog(buffer.String())
+			buffer.Reset()
             fmt.Printf("\n\nBreak\n\n")
         }
     }
