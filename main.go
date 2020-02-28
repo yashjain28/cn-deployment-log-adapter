@@ -7,7 +7,9 @@ import (
     "log"
     cb "github.com/clearblade/Go-SDK"
     "regexp"
-    "os"
+	"os"
+	"math/rand"
+	"time"
 )
 
 
@@ -79,6 +81,19 @@ func findIfMatchesEnd(line string) bool {
 }
 
 
+func randSeq(n int) string {
+	letters := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	rand.Seed(time.Now().UnixNano())
+    b := make([]rune, n)
+    for i := range b {
+        b[i] = letters[rand.Intn(len(letters))]
+    }
+    return string(b)
+}
+
+func generateClientID() string {
+	return randSeq(10)
+}
 
 func publishLog(line string) {
     b := []byte(line)
@@ -110,14 +125,19 @@ func main(){
 		log.Fatalf("Error authenticating: %s\n", err.Error())
 	}
 
-	if err := userClient.InitializeMQTT("webhookadapter_"+deviceName, "", 30, nil, nil); err != nil {
+	clientID := generateClientID()
+	if err := userClient.InitializeMQTT(clientID, "", 30, nil, nil); err != nil {
 		log.Fatalf("Unable to initialize MQTT: %s\n", err.Error())
+		os.Exit(1)
 	}
 	log.Printf("MQTT connected and adapter about to tail on file: %s\n", filename)
 
     
     
     t, _ := tail.TailFile(filename, tail.Config{
+		Location: &tail.SeekInfo{
+			Whence:os.SEEK_END,
+		},
         Follow: true,
         ReOpen: true})
     
