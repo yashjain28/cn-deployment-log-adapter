@@ -11,8 +11,8 @@ import (
 	"math/rand"
 	"time"
 	"bytes"
+	"strconv"
 )
-
 
 var (
 	platURL      string
@@ -70,7 +70,6 @@ func validateFlags() {
 
 }
 
-
 func findIfMatchesStart(line string) bool {
     re := regexp.MustCompile(`controller.go:136: ADAPTOR FILE DEPLOY: Stopped adaptor`)
     return re.Match([]byte(line))
@@ -80,7 +79,6 @@ func findIfMatchesEnd(line string) bool {
     re := regexp.MustCompile(`controller.go:149: ADAPTOR FILE DEPLOY: Started adaptor`)
     return re.Match([]byte(line))
 }
-
 
 func randSeq(n int) string {
 	letters := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -96,6 +94,53 @@ func generateClientID() string {
 	return randSeq(10)
 }
 
+func extractDate(line string) string {
+	re := regexp.MustCompile(`(\d{1,4}([/])\d{1,2}([/])\d{1,4}) (\d{1,2}:\d{1,2}:\d{1,2})`)
+	return string(re.Find([]byte(line)))
+}
+
+func extractCommandOutput(deployLogs string) string {
+	re := regexp.MustCompile(`Command Output:`)
+	b := []byte(deployLogs)
+	locStart := re.FindIndex(b)
+	re = regexp.MustCompile(`INFO .* ADAPTOR FILE DEPLOY: Started adaptor`)
+	locEnd := re.FindIndex(b)
+	runes := []rune(deployLogs)
+	
+	if(locEnd!=nil && locStart != nil){
+		return string(runes[locStart[1]:locEnd[0]])
+	}
+	return ""
+}
+
+func extractExitStatus(deployLogs string) int {
+	re := regexp.MustCompile(`Error running deploy script .*exit status (\d{1,3})`)
+	//b := []byte(deployLogs)
+	submatch := re.FindStringSubmatch(deployLogs)
+	if( len(submatch) == 2) {
+		i, err := strconv.Atoi(submatch[1])
+		if err != nil {
+			log.Println("Error")
+		}
+		return i
+	}
+    fmt.Printf("%#v\n", submatch)
+
+	return 0
+}
+
+func handleLogs(deployLogs string) error {
+	//fmt.Println("Deploy logs: ", deployLogs)
+	currDate:= extractDate(deployLogs)
+	fmt.Println("Date:", currDate)
+	commandOutput := extractCommandOutput(deployLogs)
+	fmt.Println("Command Output", commandOutput)
+	exitStatus := extractExitStatus(deployLogs)
+	fmt.Println("Exit Status", exitStatus)
+	
+	return nil
+}
+
 func publishLog(line string) {
     b := []byte(line)
     if err := userClient.Publish(topicName, b, 2); err != nil {
@@ -108,8 +153,7 @@ func main(){
     flag.Usage = usage
     validateFlags()
 
-	//deviceClient = cb.NewDeviceClient(sysKey, sysSec, deviceName, activeKey)
-    userClient = cb.NewUserClient(sysKey, sysSec, email, password)
+	userClient = cb.NewUserClient(sysKey, sysSec, email, password)
 	if platURL != "" {
 		log.Println("Setting custom platform URL to: ", platURL)
 		userClient.HttpAddr = platURL
@@ -154,18 +198,19 @@ func main(){
         }
         endFlag = findIfMatchesEnd(line.Text)
         if startFlag == true {
-			fmt.Println(line.Text)
-			buffer.WriteString(line.Text + "\n")
-            
+			//fmt.Println(line.Text)
+			buffer.WriteString(line.Text + "\n")  
 		}
-		if buffer.Len() > 1024 {
-			publishLog(buffer.String())
-			buffer.Reset()
-		}
+
+		// if buffer.Len() > 1024 {
+		// 	publishLog(buffer.String())
+		// 	buffer.Reset()
+		// }
+
         if endFlag == true {
             startFlag = false
 			endFlag = false
-			publishLog(buffer.String())
+			handleLogs(buffer.String())
 			buffer.Reset()
             fmt.Printf("\n\nBreak\n\n")
         }
