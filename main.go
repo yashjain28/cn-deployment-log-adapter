@@ -12,6 +12,7 @@ import (
 	"time"
 	"bytes"
 	"strconv"
+	"encoding/json"
 )
 
 var (
@@ -42,7 +43,7 @@ func init() {
 	flag.StringVar(&activeKey, "activeKey", "", "active key (password) for device (required)")
     flag.StringVar(&email, "email", "", "name of device (required)")
 	flag.StringVar(&password, "password", "", "active key (password) for device (required)")
-    flag.StringVar(&topicName, "topicName", "deployment-adapter/logs", "topic name to publish received HTTP requests to (defaults to webhook-adapter/received)")
+    flag.StringVar(&topicName, "topicName", "deployment/adapter/logs", "topic name to publish received HTTP requests to (defaults to webhook-adapter/received)")
 	flag.BoolVar(&enableTLS, "enableTLS", false, "enable TLS on http listener (must provide tlsCertPath and tlsKeyPath params if enabled)")
 	flag.StringVar(&tlsCertPath, "tlsCertPath", "", "path to TLS .crt file (required if enableTLS flag is set)")
 	flag.StringVar(&tlsKeyPath, "tlsKeyPath", "", "path to TLS .key file (required if enableTLS flag is set)")
@@ -71,12 +72,12 @@ func validateFlags() {
 }
 
 func findIfMatchesStart(line string) bool {
-    re := regexp.MustCompile(`controller.go:136: ADAPTOR FILE DEPLOY: Stopped adaptor`)
+    re := regexp.MustCompile(`ADAPTOR FILE DEPLOY: Stopped adaptor`)
     return re.Match([]byte(line))
 }
 
 func findIfMatchesEnd(line string) bool {
-    re := regexp.MustCompile(`controller.go:149: ADAPTOR FILE DEPLOY: Started adaptor`)
+    re := regexp.MustCompile(`ADAPTOR FILE DEPLOY: Started adaptor`)
     return re.Match([]byte(line))
 }
 
@@ -94,7 +95,7 @@ func generateClientID() string {
 	return randSeq(10)
 }
 
-func extractDate(line string) string {
+func extractTimestamp(line string) string {
 	re := regexp.MustCompile(`(\d{1,4}([/])\d{1,2}([/])\d{1,4}) (\d{1,2}:\d{1,2}:\d{1,2})`)
 	return string(re.Find([]byte(line)))
 }
@@ -129,19 +130,39 @@ func extractExitStatus(deployLogs string) int {
 	return 0
 }
 
-func handleLogs(deployLogs string) error {
+func handleLogs(deployLogs string)  {
 	//fmt.Println("Deploy logs: ", deployLogs)
-	currDate:= extractDate(deployLogs)
-	fmt.Println("Date:", currDate)
+	ts:= extractTimestamp(deployLogs)
+	fmt.Println("Date:", ts)
 	commandOutput := extractCommandOutput(deployLogs)
 	fmt.Println("Command Output", commandOutput)
 	exitStatus := extractExitStatus(deployLogs)
+	errBool := false
+	if exitStatus != 0 {
+		errBool = true
+	}
 	fmt.Println("Exit Status", exitStatus)
-	
-	return nil
+	m := map[string]string{
+		"timestamp": ts,
+		"error":strconv.FormatBool(errBool),
+		"command":"Sorry, I don't get that in logs",
+		"commandOutput":commandOutput,
+		"exitStatus":strconv.Itoa(exitStatus),
+	}
+
+	logObj, err := json.Marshal(m)   
+    if err != nil {
+        fmt.Println(err.Error())
+        return
+    }
+     
+    jsonStr := string(logObj)
+	fmt.Println("The JSON data is:", jsonStr)
+	publishLog(jsonStr)
 }
 
 func publishLog(line string) {
+	log.Println("Publishing now...")
     b := []byte(line)
     if err := userClient.Publish(topicName, b, 2); err != nil {
 		log.Printf("Unable to publish log: %s\n", err.Error())
