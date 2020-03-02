@@ -101,7 +101,7 @@ func extractTimestamp(line string) string {
 }
 
 func extractCommandOutput(deployLogs string) string {
-	re := regexp.MustCompile(`INFO .* ADAPTOR FILE DEPLOY: Ran deploy script`)
+	re := regexp.MustCompile(`INFO .* ADAPTOR FILE DEPLOY: .* deploy script`)
 	b := []byte(deployLogs)
 	locStart := re.FindIndex(b)
 	re = regexp.MustCompile(`INFO .* ADAPTOR FILE DEPLOY: Started adaptor`)
