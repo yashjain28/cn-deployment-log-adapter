@@ -101,7 +101,7 @@ func extractTimestamp(line string) string {
 }
 
 func extractCommandOutput(deployLogs string) string {
-	re := regexp.MustCompile(`Command Output:`)
+	re := regexp.MustCompile(`INFO .* ADAPTOR FILE DEPLOY: Ran deploy script`)
 	b := []byte(deployLogs)
 	locStart := re.FindIndex(b)
 	re = regexp.MustCompile(`INFO .* ADAPTOR FILE DEPLOY: Started adaptor`)
@@ -201,9 +201,9 @@ func main(){
     
     
     t, _ := tail.TailFile(filename, tail.Config{
-		// Location: &tail.SeekInfo{
-		// 	Whence:os.SEEK_END
-		// },
+		Location: &tail.SeekInfo{
+			Whence:os.SEEK_END,
+		},
         Follow: true,
         ReOpen: true})
     
