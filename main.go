@@ -101,10 +101,10 @@ func extractTimestamp(line string) string {
 }
 
 func extractCommandOutput(deployLogs string) string {
-	re := regexp.MustCompile(`INFO .* ADAPTOR FILE DEPLOY: .* deploy script`)
+	re := regexp.MustCompile(`.* ADAPTOR FILE DEPLOY: .* deploy script`)
 	b := []byte(deployLogs)
 	locStart := re.FindIndex(b)
-	re = regexp.MustCompile(`INFO .* ADAPTOR FILE DEPLOY: Started adaptor`)
+	re = regexp.MustCompile(`.* ADAPTOR FILE DEPLOY: Started adaptor`)
 	locEnd := re.FindIndex(b)
 	runes := []rune(deployLogs)
 	
@@ -131,7 +131,7 @@ func extractExitStatus(deployLogs string) int {
 }
 
 func handleLogs(deployLogs string)  {
-	//fmt.Println("Deploy logs: ", deployLogs)
+	fmt.Println("Deploy logs: ", deployLogs)
 	ts:= extractTimestamp(deployLogs)
 	fmt.Println("Date:", ts)
 	commandOutput := extractCommandOutput(deployLogs)
