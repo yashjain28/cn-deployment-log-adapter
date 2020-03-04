@@ -119,14 +119,13 @@ func extractExitStatus(deployLogs string) int {
 	//b := []byte(deployLogs)
 	submatch := re.FindStringSubmatch(deployLogs)
 	if( len(submatch) == 2) {
-		i, err := strconv.Atoi(submatch[1])
-		if err != nil {
-			log.Println("Error")
+		var err error
+		if i, err := strconv.Atoi(submatch[1]); err == nil {
+			return i	
 		}
-		return i
+		log.Println("Error", err.Error())
+		//return 250 // custom error code for integer to string conversion error
 	}
-    fmt.Printf("%#v\n", submatch)
-
 	return 0
 }
 
